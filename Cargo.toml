@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "bindings",
+]
+
+[package]
+name = "rust-win2d"
+version = "0.1.0"
+authors = ["kai <thiskaiguy@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bindings = { path = "bindings" }
+winit = "0.24"
+raw-window-handle = "0.3"
+winrt = { git = "https://github.com/microsoft/winrt-rs" }
