@@ -22,6 +22,10 @@ fn main() {
         }
         windows::ui::composition::desktop::DesktopWindowTarget
         windows::ui::Colors
-        windows::storage::streams::{InMemoryRandomAccessStream, IBuffer, DataWriter}
+        windows::storage::streams::{
+            InMemoryRandomAccessStream,
+            IBuffer,
+            DataWriter,
+        }
     );
 }

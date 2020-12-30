@@ -8,4 +8,5 @@ edition = "2018"
 bindings = { path = "bindings" }
 winit = "0.24"
 raw-window-handle = "0.3"
+futures = "0.3"
 winrt = { git = "https://github.com/microsoft/winrt-rs" }
