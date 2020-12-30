@@ -1,8 +1,3 @@
-[workspace]
-members = [
-    "bindings",
-]
-
 [package]
 name = "rust-win2d"
 version = "0.1.0"
