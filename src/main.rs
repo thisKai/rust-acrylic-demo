@@ -78,9 +78,9 @@ fn main() -> winrt::Result<()> {
                     let effect = ColorSourceEffect::new()?;
                     effect.set_color(Color {
                         a: 26,
-                        r: 0,
-                        g: 0,
-                        b: 0,
+                        r: 24,
+                        g: 24,
+                        b: 24,
                     })?;
                     effect
                 })?;
@@ -90,9 +90,9 @@ fn main() -> winrt::Result<()> {
                 let effect = ColorSourceEffect::new()?;
                 effect.set_color(Color {
                     a: 128,
-                    r: 0,
-                    g: 0,
-                    b: 0,
+                    r: 24,
+                    g: 24,
+                    b: 24,
                 })?;
                 effect
             })?;
@@ -100,7 +100,7 @@ fn main() -> winrt::Result<()> {
         })?;
         effect.set_foreground({
             let effect = OpacityEffect::new()?;
-            effect.set_opacity(0.03)?;
+            effect.set_opacity(0.02)?;
             effect.set_source({
                 let effect = BorderEffect::new()?;
                 effect.set_extendx(CanvasEdgeBehavior::Wrap)?;
