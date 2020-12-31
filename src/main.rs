@@ -143,6 +143,8 @@ fn main() -> winrt::Result<()> {
     }
     let noise_brush = compositor.create_surface_brush_with_surface(&noise_drawing_surface)?;
     noise_brush.set_stretch(CompositionStretch::None)?;
+    noise_brush.set_horizontal_alignment_ratio(0.)?;
+    noise_brush.set_vertical_alignment_ratio(0.)?;
 
     let effect_factory = compositor.create_effect_factory(&acrylic_effect)?;
     let acrylic_effect_brush = effect_factory.create_brush()?;
