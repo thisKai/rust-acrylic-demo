@@ -12,6 +12,7 @@ winrt = { git = "https://github.com/microsoft/winrt-rs" }
 [build-dependencies]
 winrt = { git = "https://github.com/microsoft/winrt-rs" }
 
+# These don't seem to work just yet, for now I had to copy the dlls into the `.windows` folder
 [package.metadata.winrt.dependencies]
 "Win2D.uwp" = "1.25.0"
 "Microsoft.VCRTForwarders.140" = "1.0.7"
