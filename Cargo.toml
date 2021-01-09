@@ -10,3 +10,4 @@ winit = "0.24"
 raw-window-handle = "0.3"
 futures = "0.3"
 winrt = { git = "https://github.com/microsoft/winrt-rs" }
+windows-window-subclass = { git = "https://github.com/thisKai/windows-window-subclass", features = ["unstable"] }

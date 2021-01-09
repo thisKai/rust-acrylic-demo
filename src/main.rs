@@ -16,14 +16,23 @@ use {
             graphics::directx::{DirectXAlphaMode, DirectXPixelFormat},
             storage::streams::{DataWriter, InMemoryRandomAccessStream},
             ui::{
-                composition::{CompositionEffectSourceParameter, CompositionStretch, Compositor},
+                composition::{
+                    CompositionEffectSourceParameter,
+                    CompositionStretch, Compositor,
+                },
                 Color, Colors,
             },
         },
     },
     futures::executor::block_on,
-    interop::{create_dispatcher_queue_controller_for_current_thread, ro_initialize, RoInitType},
+    interop::{
+        create_dispatcher_queue_controller_for_current_thread, ro_initialize,
+        RoInitType,
+    },
     window_target::CompositionDesktopWindowTargetSource,
+    windows_window_subclass::{
+        window_frame_metrics, ClientArea, DwmFrame, HitTest, Margins, SetSubclass,
+    },
     winit::{
         event::{Event, WindowEvent},
         event_loop::{ControlFlow, EventLoop},
@@ -38,15 +47,29 @@ fn main() -> winrt::Result<()> {
 
     let event_loop = EventLoop::new();
 
+    let metrics = window_frame_metrics().unwrap_or_default();
     let window = WindowBuilder::new()
         .with_no_redirection_bitmap(true)
         .build(&event_loop)
-        .unwrap();
+        .unwrap()
+        .with_subclass(DwmFrame::extend(Margins {
+            top: 2,
+            ..Default::default()
+        }))
+        .with_subclass(ClientArea::extend(Margins {
+            top: metrics.titlebar,
+            bottom: 1,
+            ..Default::default()
+        }))
+        .with_subclass(HitTest::extend_titlebar(metrics.titlebar));
 
     let compositor = Compositor::new()?;
     let target = window.create_window_target(&compositor, false)?;
 
     let root = compositor.create_sprite_visual()?;
+    let clip = compositor.create_inset_clip()?;
+    clip.set_top_inset(1.)?;
+    root.set_clip(&clip)?;
 
     let acrylic_effect = {
         let effect = BlendEffect::new()?;
