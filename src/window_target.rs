@@ -1,8 +1,10 @@
 use {
-    crate::interop::ICompositorDesktopInterop,
-    bindings::windows::ui::composition::{desktop::DesktopWindowTarget, Compositor},
+    bindings::windows::{
+        ui::composition::{desktop::DesktopWindowTarget, Compositor},
+        win32::{windows_and_messaging::HWND, winrt::ICompositorDesktopInterop},
+    },
     raw_window_handle::HasRawWindowHandle,
-    winrt::Interface,
+    windows::Interface,
 };
 
 pub trait CompositionDesktopWindowTargetSource {
@@ -10,7 +12,7 @@ pub trait CompositionDesktopWindowTargetSource {
         &self,
         compositor: &Compositor,
         is_topmost: bool,
-    ) -> winrt::Result<DesktopWindowTarget>;
+    ) -> windows::Result<DesktopWindowTarget>;
 }
 
 impl<T> CompositionDesktopWindowTargetSource for T
@@ -21,7 +23,7 @@ where
         &self,
         compositor: &Compositor,
         is_topmost: bool,
-    ) -> winrt::Result<DesktopWindowTarget> {
+    ) -> windows::Result<DesktopWindowTarget> {
         // Get the window handle
         let window_handle = self.raw_window_handle();
         let window_handle = match window_handle {
@@ -30,6 +32,10 @@ where
         };
 
         let compositor_desktop: ICompositorDesktopInterop = compositor.cast()?;
-        compositor_desktop.create_desktop_window_target(window_handle, is_topmost)
+        let mut result = None;
+
+        compositor_desktop
+            .CreateDesktopWindowTarget(HWND(window_handle as isize), is_topmost.into(), &mut result)
+            .and_some(result)
     }
 }

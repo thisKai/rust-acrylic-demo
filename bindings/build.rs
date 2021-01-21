@@ -1,5 +1,5 @@
 fn main() {
-    winrt::build!(
+    windows::build!(
         microsoft::graphics::canvas::*
         microsoft::graphics::canvas::effects::*
         microsoft::graphics::canvas::ui::composition::*
@@ -27,5 +27,7 @@ fn main() {
             IBuffer,
             DataWriter,
         }
+        windows::win32::system_services::CreateDispatcherQueueController
+        windows::win32::winrt::{ICompositorDesktopInterop, RoInitialize}
     );
 }

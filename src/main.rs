@@ -16,19 +16,14 @@ use {
             graphics::directx::{DirectXAlphaMode, DirectXPixelFormat},
             storage::streams::{DataWriter, InMemoryRandomAccessStream},
             ui::{
-                composition::{
-                    CompositionEffectSourceParameter,
-                    CompositionStretch, Compositor,
-                },
+                composition::{CompositionEffectSourceParameter, CompositionStretch, Compositor},
                 Color, Colors,
             },
+            win32::winrt::{RoInitialize, RO_INIT_TYPE},
         },
     },
     futures::executor::block_on,
-    interop::{
-        create_dispatcher_queue_controller_for_current_thread, ro_initialize,
-        RoInitType,
-    },
+    interop::create_dispatcher_queue_controller_for_current_thread,
     window_target::CompositionDesktopWindowTargetSource,
     windows_window_subclass::{
         window_frame_metrics, ClientArea, DwmFrame, HitTest, Margins, SetSubclass,
@@ -41,8 +36,11 @@ use {
     },
 };
 
-fn main() -> winrt::Result<()> {
-    ro_initialize(RoInitType::MultiThreaded)?;
+fn main() -> windows::Result<()> {
+    unsafe {
+        RoInitialize(RO_INIT_TYPE::RO_INIT_SINGLETHREADED).ok()?;
+    }
+
     let _controller = create_dispatcher_queue_controller_for_current_thread()?;
 
     let event_loop = EventLoop::new();
