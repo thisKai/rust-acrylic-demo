@@ -23,7 +23,7 @@ use {
             win32::winrt::{RoInitialize, RO_INIT_TYPE},
         },
     },
-    futures::executor::block_on,
+    futures_executor::block_on,
     interop::create_dispatcher_queue_controller_for_current_thread,
     window_subclass::WindowSubclass,
     window_target::CompositionDesktopWindowTargetSource,
