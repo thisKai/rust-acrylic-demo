@@ -1,6 +1,5 @@
 use bindings::windows::{
     system::DispatcherQueueController,
-    ui::composition::desktop::DesktopWindowTarget,
     win32::system_services::{
         CreateDispatcherQueueController, DispatcherQueueOptions,
         DISPATCHERQUEUE_THREAD_APARTMENTTYPE, DISPATCHERQUEUE_THREAD_TYPE,

@@ -1,4 +1,5 @@
 mod interop;
+mod window_subclass;
 mod window_target;
 
 use {
@@ -24,10 +25,8 @@ use {
     },
     futures::executor::block_on,
     interop::create_dispatcher_queue_controller_for_current_thread,
+    window_subclass::WindowSubclass,
     window_target::CompositionDesktopWindowTargetSource,
-    windows_window_subclass::{
-        window_frame_metrics, ClientArea, DwmFrame, HitTest, Margins, SetSubclass,
-    },
     winit::{
         event::{Event, WindowEvent},
         event_loop::{ControlFlow, EventLoop},
@@ -45,21 +44,16 @@ fn main() -> windows::Result<()> {
 
     let event_loop = EventLoop::new();
 
-    let metrics = window_frame_metrics().unwrap_or_default();
     let window = WindowBuilder::new()
+        .with_visible(false)
         .with_no_redirection_bitmap(true)
         .build(&event_loop)
-        .unwrap()
-        .with_subclass(DwmFrame::extend(Margins {
-            top: 2,
-            ..Default::default()
-        }))
-        .with_subclass(ClientArea::extend(Margins {
-            top: metrics.titlebar,
-            bottom: 1,
-            ..Default::default()
-        }))
-        .with_subclass(HitTest::extend_titlebar(metrics.titlebar));
+        .unwrap();
+
+    unsafe {
+        window.apply_subclass();
+    }
+    window.set_visible(true);
 
     let compositor = Compositor::new()?;
     let target = window.create_window_target(&compositor, false)?;

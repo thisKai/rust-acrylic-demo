@@ -10,4 +10,3 @@ windows = "0.2.1"
 winit = "0.24"
 raw-window-handle = "0.3"
 futures = "0.3"
-windows-window-subclass = { git = "https://github.com/thisKai/windows-window-subclass", features = ["unstable"] }
