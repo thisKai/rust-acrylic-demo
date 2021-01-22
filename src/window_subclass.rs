@@ -27,11 +27,11 @@ impl<W: HasRawWindowHandle> WindowSubclass for W {
             RawWindowHandle::Windows(window_handle) => window_handle.hwnd,
             _ => panic!("Unsupported platform!"),
         };
-        SetWindowSubclass(HWND(window_handle as isize), Some(subclass), 1, 0);
+        SetWindowSubclass(HWND(window_handle as isize), Some(subclass_procedure), 1, 0);
     }
 }
 
-extern "system" fn subclass(
+extern "system" fn subclass_procedure(
     h_wnd: HWND,
     u_msg: u32,
     w_param: WPARAM,
@@ -39,13 +39,15 @@ extern "system" fn subclass(
     _u_id_subclass: usize,
     _dw_ref_data: usize,
 ) -> LRESULT {
-    let mut call_default = true;
-    let mut l_ret = LRESULT(0);
-
     unsafe {
         if is_dwm_enabled() {
             let msg = u_msg as i32;
-            call_default = DwmDefWindowProc(h_wnd, u_msg, w_param, l_param, &mut l_ret).is_err();
+
+            let (dwm_result, dwm_handled) = {
+                let mut result = LRESULT(0);
+                let handled = DwmDefWindowProc(h_wnd, u_msg, w_param, l_param, &mut result).is_ok();
+                (result, handled)
+            };
 
             if msg == WM_CREATE {
                 let mut rect = RECT::default();
@@ -63,9 +65,6 @@ extern "system" fn subclass(
                     height,
                     SWP_FRAMECHANGED as _,
                 );
-
-                call_default = true;
-                l_ret = LRESULT(0);
             }
             if msg == WM_ACTIVATE {
                 // Extend the frame into the client area.
@@ -74,41 +73,34 @@ extern "system" fn subclass(
                     ..Default::default()
                 };
                 DwmExtendFrameIntoClientArea(h_wnd, &p_mar_inset);
-
-                call_default = true;
-                l_ret = LRESULT(0);
             }
             if msg == WM_NCCALCSIZE && w_param == WPARAM(TRUE as _) {
-                let mut frame = RECT::default();
-                AdjustWindowRectEx(&mut frame, WS_OVERLAPPEDWINDOW, false.into(), 0);
-                let titlebar_height = -frame.top;
+                let frame_rect = window_frame_borders(true);
+                let caption_height = -frame_rect.top;
 
                 // Calculate new NCCALCSIZE_PARAMS based on custom NCA inset.
                 let pncsp = &mut *(l_param.0 as *mut NCCALCSIZE_PARAMS);
 
                 pncsp.rgrc[0].left -= 0;
-                pncsp.rgrc[0].top -= titlebar_height;
+                pncsp.rgrc[0].top -= caption_height;
                 pncsp.rgrc[0].right += 0;
                 pncsp.rgrc[0].bottom += 1;
-
-                call_default = true;
-                l_ret = LRESULT(0);
             }
-            if msg == WM_NCHITTEST && l_ret.0 == 0 {
-                l_ret = hit_test_nca(h_wnd, l_param);
+            if msg == WM_NCHITTEST && dwm_result == LRESULT(0) {
+                let hit_test_result = hit_test_nca(h_wnd, l_param);
 
-                if l_ret.0 == HTNOWHERE {
-                    l_ret = LRESULT(HTCAPTION);
+                if hit_test_result == LRESULT(HTNOWHERE) {
+                    return LRESULT(HTCAPTION);
                 }
-                call_default = false;
+                return hit_test_result;
+            }
+
+            if dwm_handled {
+                return dwm_result;
             }
         }
 
-        if call_default {
-            DefSubclassProc(h_wnd, u_msg, w_param, l_param)
-        } else {
-            l_ret
-        }
+        DefSubclassProc(h_wnd, u_msg, w_param, l_param)
     }
 }
 
@@ -134,22 +126,10 @@ unsafe fn hit_test_nca(h_wnd: HWND, l_param: LPARAM) -> LRESULT {
     GetWindowRect(h_wnd, &mut window_rect);
 
     // Get the frame rectangle, adjusted for the style without a caption.
-    let mut frame_rect = RECT::default();
-    AdjustWindowRectEx(
-        &mut frame_rect,
-        WS_OVERLAPPEDWINDOW & !WS_CAPTION,
-        false.into(),
-        0,
-    );
+    let frame_rect = window_frame_borders(false);
 
-    // Get the frame rectangle, adjusted for the style without a caption.
-    let mut caption_frame_rect = RECT::default();
-    AdjustWindowRectEx(
-        &mut caption_frame_rect,
-        WS_OVERLAPPEDWINDOW,
-        false.into(),
-        0,
-    );
+    // Get the frame rectangle, adjusted for the style with a caption.
+    let caption_frame_rect = window_frame_borders(true);
 
     // Determine if the hit test is for resizing. Default middle (1,1).
     let mut row = 1;
@@ -184,11 +164,16 @@ unsafe fn hit_test_nca(h_wnd: HWND, l_param: LPARAM) -> LRESULT {
     LRESULT(hit_tests[row][col])
 }
 
-pub const fn lo_word(l: u32) -> u16 {
-    (l & 0xffff) as u16
-}
-pub const fn hi_word(l: u32) -> u16 {
-    ((l >> 16) & 0xffff) as u16
+unsafe fn window_frame_borders(with_caption: bool) -> RECT {
+    let style_flags = if with_caption {
+        WS_OVERLAPPEDWINDOW
+    } else {
+        WS_OVERLAPPEDWINDOW & !WS_CAPTION
+    };
+
+    let mut rect = RECT::default();
+    AdjustWindowRectEx(&mut rect, style_flags, false.into(), 0);
+    rect
 }
 
 pub fn get_l_param_point(lp: LPARAM) -> (i32, i32) {
@@ -196,4 +181,11 @@ pub fn get_l_param_point(lp: LPARAM) -> (i32, i32) {
         lo_word(lp.0 as u32) as i16 as i32,
         hi_word(lp.0 as u32) as i16 as i32,
     )
+}
+
+pub const fn lo_word(l: u32) -> u16 {
+    (l & 0xffff) as u16
+}
+pub const fn hi_word(l: u32) -> u16 {
+    ((l >> 16) & 0xffff) as u16
 }
