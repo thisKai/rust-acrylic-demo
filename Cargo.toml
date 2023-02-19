@@ -2,11 +2,46 @@
 name = "rust-acrylic"
 version = "0.1.0"
 authors = ["kai <thiskaiguy@gmail.com>"]
-edition = "2018"
+edition = "2021"
+
+[dependencies.windows]
+version = "0.44"
+features = [
+    "System",
+    "Foundation",
+    "Foundation_Numerics",
+    "Graphics",
+    "Graphics_DirectX",
+    "UI",
+    "UI_Composition",
+    "UI_Composition_Desktop",
+    "Storage_Streams",
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
+    "Win32_UI_Controls",
+    "Win32_Graphics_Dwm",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Composition",
+]
+
+[dependencies.win2d-uwp]
+git = "https://github.com/thisKai/win2d-uwp.git"
+branch = "build-script"
+features = [
+    "Graphics_Canvas",
+    "Graphics_Canvas_Effects",
+    "Graphics_Canvas_UI_Composition",
+    "Foundation",
+    "Foundation_Numerics",
+    "Foundation_Collections",
+    "Graphics_Effects",
+    "UI",
+    "UI_Composition",
+    "Storage_Streams",
+]
 
 [dependencies]
-bindings = { path = "bindings" }
-windows = "0.2.1"
-winit = "0.24"
-raw-window-handle = "0.3"
+raw-window-handle = "0.5"
+winit = "0.28"
 futures-executor = "0.3"

@@ -1,19 +1,17 @@
-use {
-    bindings::windows::win32::{
-        controls::MARGINS,
-        display_devices::RECT,
-        dwm::{DwmDefWindowProc, DwmExtendFrameIntoClientArea, DwmIsCompositionEnabled},
-        shell::{DefSubclassProc, SetWindowSubclass},
-        system_services::{
-            FALSE, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTCAPTION, HTLEFT, HTNOWHERE, HTRIGHT,
-            HTTOP, HTTOPLEFT, HTTOPRIGHT, LRESULT, SWP_FRAMECHANGED, TRUE, WM_ACTIVATE, WM_CREATE,
-            WM_NCCALCSIZE, WM_NCHITTEST, WS_CAPTION, WS_OVERLAPPEDWINDOW,
-        },
-        windows_and_messaging::{
-            AdjustWindowRectEx, GetWindowRect, SetWindowPos, WINDOWPOS_abi, HWND, LPARAM, WPARAM,
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use windows::Win32::{
+    Foundation::{BOOL, HWND, LPARAM, LRESULT, RECT, TRUE, WPARAM},
+    Graphics::Dwm::{DwmDefWindowProc, DwmExtendFrameIntoClientArea, DwmIsCompositionEnabled},
+    UI::{
+        Controls::MARGINS,
+        Shell::{DefSubclassProc, SetWindowSubclass},
+        WindowsAndMessaging::{
+            AdjustWindowRectEx, GetWindowRect, SetWindowPos, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT,
+            HTCAPTION, HTLEFT, HTNOWHERE, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT, NCCALCSIZE_PARAMS,
+            SWP_FRAMECHANGED, WINDOW_EX_STYLE, WM_ACTIVATE, WM_CREATE, WM_NCCALCSIZE, WM_NCHITTEST,
+            WS_CAPTION, WS_OVERLAPPEDWINDOW,
         },
     },
-    raw_window_handle::{HasRawWindowHandle, RawWindowHandle},
 };
 
 pub trait WindowSubclass {
@@ -24,7 +22,7 @@ impl<W: HasRawWindowHandle> WindowSubclass for W {
         // Get the window handle
         let window_handle = self.raw_window_handle();
         let window_handle = match window_handle {
-            RawWindowHandle::Windows(window_handle) => window_handle.hwnd,
+            RawWindowHandle::Win32(window_handle) => window_handle.hwnd,
             _ => panic!("Unsupported platform!"),
         };
         SetWindowSubclass(HWND(window_handle as isize), Some(subclass_procedure), 1, 0);
@@ -41,15 +39,14 @@ extern "system" fn subclass_procedure(
 ) -> LRESULT {
     unsafe {
         if is_dwm_enabled() {
-            let msg = u_msg as i32;
-
             let (dwm_result, dwm_handled) = {
                 let mut result = LRESULT(0);
-                let handled = DwmDefWindowProc(h_wnd, u_msg, w_param, l_param, &mut result).is_ok();
+                let handled =
+                    DwmDefWindowProc(h_wnd, u_msg, w_param, l_param, &mut result).as_bool();
                 (result, handled)
             };
 
-            if msg == WM_CREATE {
+            if u_msg == WM_CREATE {
                 let mut rect = RECT::default();
                 GetWindowRect(h_wnd, &mut rect);
 
@@ -66,15 +63,15 @@ extern "system" fn subclass_procedure(
                     SWP_FRAMECHANGED as _,
                 );
             }
-            if msg == WM_ACTIVATE {
+            if u_msg == WM_ACTIVATE {
                 // Extend the frame into the client area.
                 let p_mar_inset = MARGINS {
-                    cy_top_height: 2,
+                    cyTopHeight: 2,
                     ..Default::default()
                 };
-                DwmExtendFrameIntoClientArea(h_wnd, &p_mar_inset);
+                let _ = DwmExtendFrameIntoClientArea(h_wnd, &p_mar_inset);
             }
-            if msg == WM_NCCALCSIZE && w_param == WPARAM(TRUE as _) {
+            if u_msg == WM_NCCALCSIZE && w_param == WPARAM(TRUE.0 as _) {
                 let frame_rect = window_frame_borders(true);
                 let caption_height = -frame_rect.top;
 
@@ -86,11 +83,11 @@ extern "system" fn subclass_procedure(
                 pncsp.rgrc[0].right += 0;
                 pncsp.rgrc[0].bottom += 1;
             }
-            if msg == WM_NCHITTEST && dwm_result == LRESULT(0) {
+            if u_msg == WM_NCHITTEST && dwm_result == LRESULT(0) {
                 let hit_test_result = hit_test_nca(h_wnd, l_param);
 
-                if hit_test_result == LRESULT(HTNOWHERE) {
-                    return LRESULT(HTCAPTION);
+                if hit_test_result == LRESULT(HTNOWHERE as _) {
+                    return LRESULT(HTCAPTION as _);
                 }
                 return hit_test_result;
             }
@@ -105,16 +102,9 @@ extern "system" fn subclass_procedure(
 }
 
 unsafe fn is_dwm_enabled() -> bool {
-    let mut f_dwm_enabled = FALSE;
-    let dwm_enabled_result = DwmIsCompositionEnabled(&mut f_dwm_enabled);
-
-    f_dwm_enabled == TRUE && dwm_enabled_result.is_ok()
-}
-
-#[repr(C)]
-struct NCCALCSIZE_PARAMS {
-    pub rgrc: [RECT; 3],
-    pub lppos: *mut WINDOWPOS_abi,
+    DwmIsCompositionEnabled()
+        .map(BOOL::as_bool)
+        .unwrap_or_default()
 }
 
 unsafe fn hit_test_nca(h_wnd: HWND, l_param: LPARAM) -> LRESULT {
@@ -161,7 +151,7 @@ unsafe fn hit_test_nca(h_wnd: HWND, l_param: LPARAM) -> LRESULT {
         [HTLEFT, HTNOWHERE, HTRIGHT],
         [HTBOTTOMLEFT, HTBOTTOM, HTBOTTOMRIGHT],
     ];
-    LRESULT(hit_tests[row][col])
+    LRESULT(hit_tests[row][col] as _)
 }
 
 unsafe fn window_frame_borders(with_caption: bool) -> RECT {
@@ -172,7 +162,7 @@ unsafe fn window_frame_borders(with_caption: bool) -> RECT {
     };
 
     let mut rect = RECT::default();
-    AdjustWindowRectEx(&mut rect, style_flags, false.into(), 0);
+    AdjustWindowRectEx(&mut rect, style_flags, false, WINDOW_EX_STYLE(0));
     rect
 }
 
