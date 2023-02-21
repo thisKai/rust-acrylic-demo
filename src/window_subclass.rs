@@ -1,4 +1,5 @@
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use crate::util::get_hwnd_from_raw_window_handle;
+use raw_window_handle::HasRawWindowHandle;
 use windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, RECT, TRUE, WPARAM},
     Graphics::Dwm::{DwmDefWindowProc, DwmExtendFrameIntoClientArea, DwmIsCompositionEnabled},
@@ -14,47 +15,40 @@ use windows::Win32::{
     },
 };
 
-pub trait WindowSubclass {
-    unsafe fn apply_subclass(&self);
-}
-impl<W: HasRawWindowHandle> WindowSubclass for W {
-    unsafe fn apply_subclass(&self) {
-        // Get the window handle
-        let window_handle = self.raw_window_handle();
-        let window_handle = match window_handle {
-            RawWindowHandle::Win32(window_handle) => window_handle.hwnd,
-            _ => panic!("Unsupported platform!"),
-        };
-        SetWindowSubclass(HWND(window_handle as isize), Some(subclass_procedure), 1, 0);
-    }
+pub(crate) unsafe fn apply_window_subclass<W: HasRawWindowHandle>(window: &W) {
+    SetWindowSubclass(
+        get_hwnd_from_raw_window_handle(window),
+        Some(subclass_procedure),
+        1,
+        0,
+    );
 }
 
 extern "system" fn subclass_procedure(
-    h_wnd: HWND,
-    u_msg: u32,
-    w_param: WPARAM,
-    l_param: LPARAM,
-    _u_id_subclass: usize,
-    _dw_ref_data: usize,
+    hwnd: HWND,
+    umsg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _uidsubclass: usize,
+    _dwrefdata: usize,
 ) -> LRESULT {
     unsafe {
         if is_dwm_enabled() {
             let (dwm_result, dwm_handled) = {
                 let mut result = LRESULT(0);
-                let handled =
-                    DwmDefWindowProc(h_wnd, u_msg, w_param, l_param, &mut result).as_bool();
+                let handled = DwmDefWindowProc(hwnd, umsg, wparam, lparam, &mut result).as_bool();
                 (result, handled)
             };
 
-            if u_msg == WM_CREATE {
+            if umsg == WM_CREATE {
                 let mut rect = RECT::default();
-                GetWindowRect(h_wnd, &mut rect);
+                GetWindowRect(hwnd, &mut rect);
 
                 // Inform application of the frame change.
                 let width = rect.right - rect.left;
                 let height = rect.bottom - rect.top;
                 SetWindowPos(
-                    h_wnd,
+                    hwnd,
                     HWND(0),
                     rect.left,
                     rect.top,
@@ -63,28 +57,28 @@ extern "system" fn subclass_procedure(
                     SWP_FRAMECHANGED as _,
                 );
             }
-            if u_msg == WM_ACTIVATE {
+            if umsg == WM_ACTIVATE {
                 // Extend the frame into the client area.
                 let p_mar_inset = MARGINS {
                     cyTopHeight: 2,
                     ..Default::default()
                 };
-                let _ = DwmExtendFrameIntoClientArea(h_wnd, &p_mar_inset);
+                let _ = DwmExtendFrameIntoClientArea(hwnd, &p_mar_inset);
             }
-            if u_msg == WM_NCCALCSIZE && w_param == WPARAM(TRUE.0 as _) {
+            if umsg == WM_NCCALCSIZE && wparam == WPARAM(TRUE.0 as _) {
                 let frame_rect = window_frame_borders(true);
                 let caption_height = -frame_rect.top;
 
                 // Calculate new NCCALCSIZE_PARAMS based on custom NCA inset.
-                let pncsp = &mut *(l_param.0 as *mut NCCALCSIZE_PARAMS);
+                let pncsp = &mut *(lparam.0 as *mut NCCALCSIZE_PARAMS);
 
                 pncsp.rgrc[0].left -= 0;
                 pncsp.rgrc[0].top -= caption_height;
                 pncsp.rgrc[0].right += 0;
                 pncsp.rgrc[0].bottom += 1;
             }
-            if u_msg == WM_NCHITTEST && dwm_result == LRESULT(0) {
-                let hit_test_result = hit_test_nca(h_wnd, l_param);
+            if umsg == WM_NCHITTEST && dwm_result == LRESULT(0) {
+                let hit_test_result = hit_test_nca(hwnd, lparam);
 
                 if hit_test_result == LRESULT(HTNOWHERE as _) {
                     return LRESULT(HTCAPTION as _);
@@ -97,7 +91,7 @@ extern "system" fn subclass_procedure(
             }
         }
 
-        DefSubclassProc(h_wnd, u_msg, w_param, l_param)
+        DefSubclassProc(hwnd, umsg, wparam, lparam)
     }
 }
 
@@ -107,13 +101,13 @@ unsafe fn is_dwm_enabled() -> bool {
         .unwrap_or_default()
 }
 
-unsafe fn hit_test_nca(h_wnd: HWND, l_param: LPARAM) -> LRESULT {
+unsafe fn hit_test_nca(hwnd: HWND, lparam: LPARAM) -> LRESULT {
     // Get the point coordinates for the hit test.
-    let (x, y) = get_l_param_point(l_param);
+    let (x, y) = get_lparam_point(lparam);
 
     // Get the window rectangle.
     let mut window_rect = RECT::default();
-    GetWindowRect(h_wnd, &mut window_rect);
+    GetWindowRect(hwnd, &mut window_rect);
 
     // Get the frame rectangle, adjusted for the style without a caption.
     let frame_rect = window_frame_borders(false);
@@ -166,7 +160,7 @@ unsafe fn window_frame_borders(with_caption: bool) -> RECT {
     rect
 }
 
-pub fn get_l_param_point(lp: LPARAM) -> (i32, i32) {
+pub fn get_lparam_point(lp: LPARAM) -> (i32, i32) {
     (
         lo_word(lp.0 as u32) as i16 as i32,
         hi_word(lp.0 as u32) as i16 as i32,

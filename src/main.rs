@@ -1,4 +1,5 @@
 mod interop;
+mod util;
 mod window_subclass;
 mod window_target;
 
@@ -12,8 +13,8 @@ use win2d_uwp::Microsoft::Graphics::Canvas::{
     },
     UI::Composition::CanvasComposition,
 };
-use window_subclass::WindowSubclass;
-use window_target::CompositionDesktopWindowTargetSource;
+use window_subclass::apply_window_subclass;
+use window_target::create_compositor_desktop_window_target;
 use windows::{
     h,
     Foundation::{Numerics::Vector2, Size},
@@ -46,12 +47,12 @@ fn main() -> windows::core::Result<()> {
         .unwrap();
 
     unsafe {
-        window.apply_subclass();
+        apply_window_subclass(&window);
     }
     window.set_visible(true);
 
     let compositor = Compositor::new()?;
-    let target = window.create_window_target(&compositor, false)?;
+    let target = unsafe { create_compositor_desktop_window_target(&window, &compositor, false) }?;
 
     let root = compositor.CreateSpriteVisual()?;
     let clip = compositor.CreateInsetClip()?;

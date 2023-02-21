@@ -1,38 +1,18 @@
+use crate::util::get_hwnd_from_raw_window_handle;
 use raw_window_handle::HasRawWindowHandle;
 use windows::{
     core::Interface,
-    Win32::{Foundation::HWND, System::WinRT::Composition::ICompositorDesktopInterop},
+    Win32::System::WinRT::Composition::ICompositorDesktopInterop,
     UI::Composition::{Compositor, Desktop::DesktopWindowTarget},
 };
 
-pub trait CompositionDesktopWindowTargetSource {
-    fn create_window_target(
-        &self,
-        compositor: &Compositor,
-        is_topmost: bool,
-    ) -> windows::core::Result<DesktopWindowTarget>;
-}
+pub(crate) unsafe fn create_compositor_desktop_window_target<W: HasRawWindowHandle>(
+    window: &W,
+    compositor: &Compositor,
+    is_topmost: bool,
+) -> windows::core::Result<DesktopWindowTarget> {
+    let compositor_desktop: ICompositorDesktopInterop = compositor.cast()?;
 
-impl<T> CompositionDesktopWindowTargetSource for T
-where
-    T: HasRawWindowHandle,
-{
-    fn create_window_target(
-        &self,
-        compositor: &Compositor,
-        is_topmost: bool,
-    ) -> windows::core::Result<DesktopWindowTarget> {
-        // Get the window handle
-        let window_handle = self.raw_window_handle();
-        let window_handle = match window_handle {
-            raw_window_handle::RawWindowHandle::Win32(window_handle) => window_handle.hwnd,
-            _ => panic!("Unsupported platform!"),
-        };
-
-        let compositor_desktop: ICompositorDesktopInterop = compositor.cast()?;
-
-        unsafe {
-            compositor_desktop.CreateDesktopWindowTarget(HWND(window_handle as isize), is_topmost)
-        }
-    }
+    compositor_desktop
+        .CreateDesktopWindowTarget(get_hwnd_from_raw_window_handle(window), is_topmost)
 }
